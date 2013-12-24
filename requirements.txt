@@ -1,0 +1,6 @@
+#-e git+http://github.com/shvechikov/python-rtfng.git#egg=rtfng
+-e git+http://github.com/ransage/python-docx.git#egg=docx
+pyparsing
+Pillow
+lxml
+ipython
