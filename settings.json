@@ -1,0 +1,16 @@
+{
+    "open": [
+        1,
+        2,
+        3
+    ],
+    "boolean": true,
+    "number": 123,
+    "reference": {
+        "start": "{",
+        "end": "}"
+    },
+    "l_delim": "{",
+    "r_delim": "}",
+    "last_field_no_comma": null
+}
