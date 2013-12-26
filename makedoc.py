@@ -15,8 +15,15 @@ from docx import *
 import re
 import csv
 
+INPUT_FILE = 'test/input.csv'
+OUTPUT_FILE = 'test/output.docx'
 NUM_NON_BODY_COLS = 5
-OUTPUT_FILENAME = 'PayloadSpec_RefOnly.docx'
+
+ID_IND = 0
+HEADING_LEVEL_IND = 2
+HEADING_NUM_IND = 3
+HEADING_TEXT_IND = 4
+BODY_TEXT_IND = 5
 
 title    = 'Payload Specification'
 subject  = 'Auto export using docx from Python'
@@ -65,14 +72,14 @@ if __name__ == '__main__':
 
     def output_row_to_docx(row):
 
-        if len(row[2]):
-            #print 'Heading: ' + ' '.join(row[3:5])
-            body.append(heading(' '.join(row[3:5]), int(row[2])))
+        if len(row[HEADING_LEVEL_IND]):
+            body.append(heading(' '.join((row[HEADING_NUM_IND],row[HEADING_TEXT_IND])), 
+                                int(row[HEADING_LEVEL_IND])))
         else:
-            output_body_to_docx(row[5],row[0])
+            output_body_to_docx(row[BODY_TEXT_IND],row[ID_IND])
     
 
-    with open('export.csv','rb') as csvfile:
+    with open(INPUT_FILE,'rb') as csvfile:
         reader = csv.reader(csvfile, delimiter=',', quotechar='"')
         already_skipped_header = False
         for row in reader:
@@ -175,6 +182,6 @@ if __name__ == '__main__':
     print 'About to save'
     # Save our document
     savedocx(document, coreprops, appprops, contenttypes, websettings,
-             wordrelationships, OUTPUT_FILENAME)
+             wordrelationships, OUTPUT_FILE)
     print 'Done saving'
 
