@@ -32,6 +32,8 @@ DEFAULT_JSON = 'settings.json'
 DEFAULT_INPUT_FILE = 'test/input.csv'
 DEFAULT_OUTPUT_FILE = 'test/output.docx'
 
+class LogicError(Exception):
+    pass
 
 def create_parser():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -142,27 +144,65 @@ class DocxConfig():
 
 class CsvParser():
     def __init__(self, settings):
+        self.header_dict = {}
         self.s = settings
         # s.l_delim
         # s.r_delim
         self.out_docx = None # Error if not set; TODO improve error handling
     # end __init__
 
-    def handle_token(self, token):
+    def insert_image(self, filename_or_other):
         # Add an image - INITIAL HACK (but found/fixed a bug)
-        self.out_docx.add_image( 'test/images/240px-Smiley.svg.png',
-                                 'Captions not implemented - TBD')
-    # end handle_token
+        try:
+            self.out_docx.add_image( filename_or_other,
+                                     'Captions not implemented - TBD')
+        except:
+            self.out_docx.write_paragraph(filename_or_other)
+    # end insert_image
+
+    def parse_token(self, token):
+        s = self.s
+        token_contents = token[len(s.l_delim):-len(s.r_delim)]
+
+        if re.match('^[#H]\d+$',token_contents):
+            try:
+                if token_contents[0] == '#':
+                    dict_index = 0
+                elif token_contents[0] == 'H':
+                    dict_index = 1
+                else:
+                    print "OOPS: %s" % token_contents[0] 
+                print token_contents[1:] + " " ,
+                target_key = int(token_contents[1:])
+                target_dict = self.header_dict[target_key]
+                return target_dict[dict_index]
+            except:
+                print "except"
+                return (False, token + "_ERROR")
+        else:
+            print 'IMAGE OR NOTE: %s' % token_contents
+            return (True, token_contents)
+    # end parse_token
 
     def output_body_to_docx(self, body, row_id):
-        non_matches = re.split('{[^}]*}',body)
-        matches = re.findall('{[^}]*}',body)
+        s = self.s
+        esc_seq = '%s[^%s]*%s' % ( s.l_delim, s.r_delim, s.r_delim )
+        non_matches = re.split(esc_seq,body)
+        matches = re.findall(esc_seq,body)
         if len(non_matches) != len(matches)+1:
-            raise Exception( "Need an error to throw...  todo")
+            raise LogicError('%s erred in regex logic' %
+                             (inspect.stack()[0][3],json_filename))
 
+        this_str = ''
         for i in range(0,len(matches)):
-            self.out_docx.write_paragraph(non_matches[i],row_id)
-            self.handle_token(matches[i])
+            this_str += non_matches[i]
+            is_image, ref_str = self.parse_token(matches[i])
+            if is_image:
+                self.out_docx.write_paragraph(this_str, row_id)
+                this_str = ''
+                self.insert_image(ref_str)
+            else:
+                this_str += ref_str
         self.out_docx.write_paragraph(non_matches[-1],row_id)
     # end output_body_to_docx
 
@@ -188,6 +228,15 @@ class CsvParser():
         if self.out_docx == None:
             sys.exit('Output docx not configured\nExiting...' )
         try:
+            with open(self.s.INPUT_FILE,'rb') as csvfile:
+                reader = csv.reader(csvfile, delimiter=',', quotechar='"')
+                for row in reader:
+                    try:
+                        int_key = int(row[s.ID_IND])
+                        self.header_dict[int_key] = (row[s.HEADING_NUM_IND],
+                                                     row[s.HEADING_TEXT_IND])
+                    except:
+                        pass
             with open(self.s.INPUT_FILE,'rb') as csvfile:
                 reader = csv.reader(csvfile, delimiter=',', quotechar='"')
                 need_to_skip_header = self.s.skip_header
