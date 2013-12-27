@@ -1,15 +1,5 @@
 {
-    "open": [
-        1,
-        2,
-        3
-    ],
-    "boolean": true,
-    "number": 123,
-    "reference": {
-        "start": "{",
-        "end": "}"
-    },
+    "skip_header": true,
     "l_delim": "{",
     "r_delim": "}",
     "last_field_no_comma": null

@@ -11,29 +11,14 @@ Part of Python's docx module - http://github.com/mikemaccana/python-docx
 See LICENSE for licensing information.
 """
 
+DEFAULT_JSON = 'settings.json'
+
 from docx import *
 import re
 import csv
 import sys
 import json
 import inspect
-
-DEFAULT_JSON = 'settings.json'
-INPUT_FILE = 'test/input.csv'
-OUTPUT_FILE = 'test/output.docx'
-NUM_NON_BODY_COLS = 5
-
-ID_IND = 0
-HEADING_LEVEL_IND = 2
-HEADING_NUM_IND = 3
-HEADING_TEXT_IND = 4
-BODY_TEXT_IND = 5
-
-title    = 'Payload Specification'
-subject  = 'Auto export using docx from Python'
-creator  = 'Randy Sage'
-keywords = ['python', 'Office Open XML', 'Word']
-
 
 class MySettings():
 
@@ -64,6 +49,23 @@ class MySettings():
                      (settings['l_delim'], settings['r_delim'])))
             self.l_delim = settings['l_delim'] 
             self.r_delim = settings['r_delim']
+            self.skip_header = settings['skip_header']
+
+            s.INPUT_FILE = 'test/input.csv'
+            s.OUTPUT_FILE = 'test/output.docx'
+            s.NUM_NON_BODY_COLS = 5
+            
+            s.ID_IND = 0
+            s.HEADING_LEVEL_IND = 2
+            s.HEADING_NUM_IND = 3
+            s.HEADING_TEXT_IND = 4
+            s.BODY_TEXT_IND = 5
+
+            s.title    = 'Payload Specification'
+            s.subject  = 'Auto export using docx from Python'
+            s.creator  = 'Randy Sage'
+            s.keywords = ['python', 'Office Open XML', 'Word']
+
             return s
         except 23:
             sys.exit("Unexpected issue in %s\nExiting..." %
@@ -74,27 +76,34 @@ class MySettings():
 
 
 class DocxConfig():
-    # Default set of relationshipships - the minimum components of a document
-    relationships = relationshiplist()
+    def __init__(self, settings):
+        self.s = settings
 
-    # Make a new document tree - this is the main part of a Word document
-    document = newdocument()
+        # Default set of relationshipships - the minimum components of a document
+        self.relationships = relationshiplist()
 
-    # This xpath location is where most interesting content lives
-    body = document.xpath('/w:document/w:body', namespaces=nsprefixes)[0]
+        # Make a new document tree - this is the main part of a Word document
+        self.document = newdocument()
+
+        # This xpath location is where most interesting content lives
+        self.body = self.document.xpath('/w:document/w:body', namespaces=nsprefixes)[0]
+    # end __init__
 
     def add_image(self, image_file, image_caption):
-        self.relationships, picpara = picture(relationships, 
-                                                   image_file,
-                                                   image_caption)
+        self.relationships, picpara = picture(self.relationships, 
+                                              image_file,
+                                              image_caption)
         self.body.append(picpara)        
     # end add_image
 
     def save(self, out_file):
+        s = self.s
         # Create our properties, contenttypes, and other support files
     
-        coreprops = coreproperties(title=title, subject=subject, creator=creator,
-                               keywords=keywords)
+        coreprops = coreproperties(title = s.title, 
+                                   subject = s.subject, 
+                                   creator = s.creator,
+                                   keywords = s.keywords)
         appprops = appproperties()
         content_types = contenttypes()
         web_settings = websettings()
@@ -118,62 +127,85 @@ class DocxConfig():
                 'Failed to write paragraph with id %s' % row_id))
     # end write_paragraph
 # DocxConfig
-    
-if __name__ == '__main__':
 
-    s = MySettings()
-    s.read_json()
-    print s.l_delim
-    print s.r_delim
+class CsvParser():
+    def __init__(self, settings):
+        self.s = settings
+        # s.l_delim
+        # s.r_delim
+        self.out_docx = None # Error if not set; TODO improve error handling
+    # end __init__
 
-    out_docx = DocxConfig()
-
-    # input_file = open('export.csv')
-    # input_dat = input_file.read()
-    # input_file.close()
-
-    def handle_token(token):
-        # Add an image
-        out_docx.add_image( 'image1.png',
-                            'Captions not implemented - TBD')
+    def handle_token(self, token):
+        # Add an image - INITIAL HACK (but found/fixed a bug)
+        self.out_docx.add_image( 'test/images/240px-Smiley.svg.png',
+                                 'Captions not implemented - TBD')
     # end handle_token
 
-    def output_body_to_docx(body, row_id):
+    def output_body_to_docx(self, body, row_id):
         non_matches = re.split('{[^}]*}',body)
         matches = re.findall('{[^}]*}',body)
         if len(non_matches) != len(matches)+1:
             raise Exception( "Need an error to throw...  todo")
 
         for i in range(0,len(matches)):
-            out_docx.write_paragraph(non_matches[i],row_id)
-            handle_token(matches[i])
-        out_docx.write_paragraph(non_matches[-1],row_id)
+            self.out_docx.write_paragraph(non_matches[i],row_id)
+            self.handle_token(matches[i])
+        self.out_docx.write_paragraph(non_matches[-1],row_id)
     # end output_body_to_docx
 
-    def output_row_to_docx(row):
+    def output_row_to_docx(self, row):
+        s = self.s
 
-        if len(row[HEADING_LEVEL_IND]):
-            h_text = ' '.join((row[HEADING_NUM_IND],
-                               row[HEADING_TEXT_IND]))
-            out_docx.write_heading(h_text, 
-                                   int(row[HEADING_LEVEL_IND]))
+        if not len(row): # no content
+            return
+
+        if len(row[s.HEADING_LEVEL_IND]):
+            h_text = ' '.join((row[s.HEADING_NUM_IND],
+                               row[s.HEADING_TEXT_IND]))
+            self.out_docx.write_heading(h_text, 
+                                   int(row[s.HEADING_LEVEL_IND]))
         else:
-            output_body_to_docx(row[BODY_TEXT_IND],row[ID_IND])
+            self.output_body_to_docx(row[s.BODY_TEXT_IND],row[s.ID_IND])
     # end output_row_to_docx
 
-    try:
-        with open(INPUT_FILE,'rb') as csvfile:
-            reader = csv.reader(csvfile, delimiter=',', quotechar='"')
-            already_skipped_header = False
-            for row in reader:
-                if already_skipped_header:
-                    output_row_to_docx(row)
-                else:
-                    already_skipped_header = True
-    except IOError:
-        sys.exit('Failed to open input file: %s\nExiting...' % INPUT_FILE)
-    # end try
+    def parse(self):
+        if self.out_docx == None:
+            sys.exit('Output docx not configured\nExiting...' )
+        try:
+            with open(self.s.INPUT_FILE,'rb') as csvfile:
+                reader = csv.reader(csvfile, delimiter=',', quotechar='"')
+                need_to_skip_header = self.s.skip_header
+                for row in reader:
+                    if need_to_skip_header:
+                        # Do nothing when skipping, except no longer skip
+                        need_to_skip_header = False
+                    else:
+                        self.output_row_to_docx(row)
+        except IOError:
+            sys.exit('Failed to open input file: %s\nExiting...' % 
+                     self.s.INPUT_FILE)
+        # end try
+    # end parse()
 
-    out_docx.save(OUTPUT_FILE)
+    def write_docx(self, out_docx):
+        self.out_docx = out_docx
+        self.parse()
+    # end write_docx()
+#end CsvParser
+    
+if __name__ == '__main__':
+
+
+    s = MySettings()
+    s.read_json()
+
+    out_docx = DocxConfig(s)
+    csv_parser = CsvParser(s)
+    
+    csv_parser.write_docx(out_docx)
+
+    out_docx.save(s.OUTPUT_FILE)
     print 'Done :-)'
 
+#end __main__

@@ -1,0 +1,15 @@
+The images in this folder were either downloaded from http://en.wikipedia.org/wiki/File:Smiley.svg (created/uploaded by Pumbaa80) or were created based on that image by ransage (Randy Sage).
+
+The original images were licensed under the terms:
+
+ "I, the copyright holder of this work, release this work into the public domain. This applies worldwide.
+In some countries this may not be legally possible; if so:
+I grant anyone the right to use this work for any purpose, without any conditions, unless such conditions are required by law."
+
+Modifications by ransage (Randy Sage) are hearby licensed under CC0 (http://creativecommons.org/about/cc0) with the goal of providing comparable freedoms to any users.  The human readable summary follows:
+
+"The person who associated a work with this deed has dedicated the work to the public domain by waiving all of his or her rights to the work worldwide under copyright law, including all related and neighboring rights, to the extent allowed by law.
+
+You can copy, modify, distribute and perform the work, even for commercial purposes, all without asking permission. See Other Information below."
+
+The full license is available at http://creativecommons.org/publicdomain/zero/1.0/legalcode

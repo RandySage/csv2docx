@@ -5,7 +5,7 @@ Python module for exporting a csv (selectively) to a docx, controlled by a json 
 
 License
 -------
-Available under the MIT License.  
+Source available under the MIT License.  Note: The image examples were created and uploaded to Wikipedia by Pumbaa80 under the public domain or were based on those and are available under CC0 (i.e. there are no restrictions on the smiley images, but you should go to http://en.wikipedia.org/wiki/File:Smiley.svg to get the higher-quality originals).
 
 I have no interest in restricting usage, so I gave this as much thought as clicking on 'I want it simple and permissive.'  Open an issue if you think this should be changed to another permissive license.  
 
