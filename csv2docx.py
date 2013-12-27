@@ -13,6 +13,8 @@ See LICENSE for licensing information.
 
 Todo:
  - do something with tables
+ - finish getting images to work
+ - deal with line endings in cells
  - fix to use l_delim, r_delim
 
 """
@@ -64,11 +66,6 @@ class MySettings():
     def read_json(self, json_file):
         try:
             settings = self.get_json(json_file)
-            # try:
-            #     s.l_delim = settings.reference.start
-            #     s.r_delim = settings.reference.end
-            # except:
-            #     sys.exit("Exiting with issue in get_settings\nExiting...")
 
             for k, v in settings.items():
                 setattr(self, k, v)
@@ -78,9 +75,8 @@ class MySettings():
                 sys.exit(
                     ("l_delim ('%s') and r_delim ('%s') need to be single characters\nExiting..." % 
                      (settings['l_delim'], settings['r_delim'])))
-            # self.l_delim = settings['l_delim'] 
-            # self.r_delim = settings['r_delim']
-            # self.skip_header = settings['skip_header']
+
+            # Confirm settings about as expected
 
             return s
         except 23:
