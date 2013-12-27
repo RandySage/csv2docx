@@ -34,6 +34,8 @@ DEFAULT_OUTPUT_FILE = 'test/output.docx'
 
 class LogicError(Exception):
     pass
+class JsonError(Exception):
+    pass
 
 def create_parser():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -53,23 +55,20 @@ def create_parser():
 
 class MySettings():
 
-    def get_json(self, json_filename):
+    def json_file_to_dict(self, json_filename):
         try:
             with open(json_filename) as json_file:
-                json_dict = json.loads(json_file.read())
-                return json_dict
+                return json.loads(json_file.read())
         except ValueError:
-            sys.exit("Parse error for json file: %s\nExiting..." % json_filename)
+            sys.exit("Parse error for json file: %s\nExiting..." % json_filename)        
         except IOError:
             sys.exit("Exiting from %s because failed to open json file: %s\nExiting..." % 
                      (inspect.stack()[0][3],json_filename))
-    # get_json
+    # end def
     
-    def read_json(self, json_file):
+    def validate_set_json_dict(self, json_dict):
         try:
-            settings = self.get_json(json_file)
-
-            for k, v in settings.items():
+            for k, v in json_dict.items():
                 setattr(self, k, v)
 
             if ( len(self.l_delim) > 1 or
@@ -80,12 +79,15 @@ class MySettings():
 
             # Confirm settings about as expected
 
-            return s
-        except 23:
+        except:
             sys.exit("Unexpected issue in %s\nExiting..." %
                      inspect.stack()[0][3])
-    # read_json
+    # validate_set_json_dict
 
+    def read_json_file(self, json_file):
+        json_dict = self.json_file_to_dict(json_file)
+        self.validate_set_json_dict(json_dict)
+    # read_json_file
 # MySettings
 
 
@@ -146,8 +148,6 @@ class CsvParser():
     def __init__(self, settings):
         self.header_dict = {}
         self.s = settings
-        # s.l_delim
-        # s.r_delim
         self.out_docx = None # Error if not set; TODO improve error handling
     # end __init__
 
@@ -223,23 +223,49 @@ class CsvParser():
         except:
             print "Warning: did not write this data...\n%s" % row
     # end output_row_to_docx
+    
+    def clean_backslash_r(self, row, debug=False):
+        s = self.s
+        new_row = row[:]
+        #try:
+        if( hasattr(s,'indices_to_replace_backslash_r') and 
+            len(s.indices_to_replace_backslash_r) and
+            len(row) # rule out empty rows
+        ):
+            if not hasattr(s,'replace_backslash_r_with'):
+                raise JsonError('json has indices_to_replace_backslash_r ' + 
+                                'true-like, but no replace_backslash_r_with')
+            for index in s.indices_to_replace_backslash_r:
+                if not isinstance(index, int) or abs(index) > len(new_row):
+                    raise JsonError(('json has indices_to_replace_backslash_r ' + 
+                                     'with value %s not in row %s') %
+                                    (index, row[s.ID_IND])
+                    )
+                else:
+                    new_row[index] = new_row[index].replace('\r', 
+                                                            s.replace_backslash_r_with)
+            # end replace for
+        return new_row
+    # end clean_backslash_r
 
     def parse(self):
+        s = self.s
         if self.out_docx == None:
             sys.exit('Output docx not configured\nExiting...' )
         try:
-            with open(self.s.INPUT_FILE,'rb') as csvfile:
+            with open(s.INPUT_FILE,'U') as csvfile:
                 reader = csv.reader(csvfile, delimiter=',', quotechar='"')
                 for row in reader:
+                    row = self.clean_backslash_r(row)
                     try:
                         int_key = int(row[s.ID_IND])
                         self.header_dict[int_key] = (row[s.HEADING_NUM_IND],
                                                      row[s.HEADING_TEXT_IND])
                     except:
                         pass
-            with open(self.s.INPUT_FILE,'rb') as csvfile:
+            with open(s.INPUT_FILE,'rb') as csvfile:
                 reader = csv.reader(csvfile, delimiter=',', quotechar='"')
-                need_to_skip_header = self.s.skip_header
+                need_to_skip_header = s.skip_header
                 for row in reader:
                     if need_to_skip_header:
                         # Do nothing when skipping, except no longer skip
@@ -248,7 +274,7 @@ class CsvParser():
                         self.output_row_to_docx(row)
         except IOError:
             sys.exit('Failed to open input file: %s\nExiting...' % 
-                     self.s.INPUT_FILE)
+                     s.INPUT_FILE)
         # end try
     # end parse()
 
@@ -263,7 +289,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     s = MySettings()
-    s.read_json(args.settings) # Use argparse specified settings file
+    s.read_json_file(args.settings) # Use argparse specified settings file
     
     # Add the argparse inputs
     s.INPUT_FILE = args.input

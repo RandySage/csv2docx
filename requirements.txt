@@ -4,3 +4,4 @@ pyparsing
 lxml
 ipython
 Pillow
+nose
