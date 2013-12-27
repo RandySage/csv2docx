@@ -1,24 +1,51 @@
 #! /usr/bin/env python
 
 """
-This file makes a .docx (Word 2007) file from scratch, showing off most of the
-features of python-docx.
+This file s based off the techniques from the example for python-docx --
+ http://github.com/mikemaccana/python-docx
+and uses that module to implement a docx generator.  Currently it operates on 
+a csv, but there is an attempt to make it modular enough that text data could 
+come from other sources.
 
-If you need to make documents from scratch, you can use this file as a basis
-for your work.
+This file makes a .docx (Word 2007) file from scratch.
 
-Part of Python's docx module - http://github.com/mikemaccana/python-docx
 See LICENSE for licensing information.
+
+Todo:
+ - do something with tables
+ - fix to use l_delim, r_delim
+
 """
 
-DEFAULT_JSON = 'settings.json'
 
 from docx import *
+import argparse
 import re
 import csv
 import sys
 import json
 import inspect
+
+DEFAULT_JSON = 'settings.json'
+DEFAULT_INPUT_FILE = 'test/input.csv'
+DEFAULT_OUTPUT_FILE = 'test/output.docx'
+
+
+def create_parser():
+    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    
+    parser.add_argument("--input", "-i",
+                        help="input csv filename",
+                        default = DEFAULT_INPUT_FILE)
+    parser.add_argument("--output", "-o",
+                        help='output docx filename',
+                        default = DEFAULT_OUTPUT_FILE)
+    parser.add_argument("--settings", "-s",
+                        help='settings file (json)',
+                        default = DEFAULT_JSON)
+
+    return parser
+
 
 class MySettings():
 
@@ -34,37 +61,26 @@ class MySettings():
                      (inspect.stack()[0][3],json_filename))
     # get_json
     
-    def read_json(self):
+    def read_json(self, json_file):
         try:
-            settings = self.get_json(DEFAULT_JSON)
+            settings = self.get_json(json_file)
             # try:
             #     s.l_delim = settings.reference.start
             #     s.r_delim = settings.reference.end
             # except:
             #     sys.exit("Exiting with issue in get_settings\nExiting...")
-            if ( len(settings['l_delim']) > 1 or
-                 len(settings['r_delim']) > 1 ):
+
+            for k, v in settings.items():
+                setattr(self, k, v)
+
+            if ( len(self.l_delim) > 1 or
+                 len(self.r_delim) > 1 ):
                 sys.exit(
                     ("l_delim ('%s') and r_delim ('%s') need to be single characters\nExiting..." % 
                      (settings['l_delim'], settings['r_delim'])))
-            self.l_delim = settings['l_delim'] 
-            self.r_delim = settings['r_delim']
-            self.skip_header = settings['skip_header']
-
-            s.INPUT_FILE = 'test/input.csv'
-            s.OUTPUT_FILE = 'test/output.docx'
-            s.NUM_NON_BODY_COLS = 5
-            
-            s.ID_IND = 0
-            s.HEADING_LEVEL_IND = 2
-            s.HEADING_NUM_IND = 3
-            s.HEADING_TEXT_IND = 4
-            s.BODY_TEXT_IND = 5
-
-            s.title    = 'Payload Specification'
-            s.subject  = 'Auto export using docx from Python'
-            s.creator  = 'Randy Sage'
-            s.keywords = ['python', 'Office Open XML', 'Word']
+            # self.l_delim = settings['l_delim'] 
+            # self.r_delim = settings['r_delim']
+            # self.skip_header = settings['skip_header']
 
             return s
         except 23:
@@ -160,13 +176,16 @@ class CsvParser():
         if not len(row): # no content
             return
 
-        if len(row[s.HEADING_LEVEL_IND]):
-            h_text = ' '.join((row[s.HEADING_NUM_IND],
-                               row[s.HEADING_TEXT_IND]))
-            self.out_docx.write_heading(h_text, 
-                                   int(row[s.HEADING_LEVEL_IND]))
-        else:
-            self.output_body_to_docx(row[s.BODY_TEXT_IND],row[s.ID_IND])
+        try:
+            if len(row[s.HEADING_LEVEL_IND]):
+                h_text = ' '.join((row[s.HEADING_NUM_IND],
+                                   row[s.HEADING_TEXT_IND]))
+                self.out_docx.write_heading(h_text, 
+                                            int(row[s.HEADING_LEVEL_IND]))
+            else:
+                self.output_body_to_docx(row[s.BODY_TEXT_IND],row[s.ID_IND])
+        except:
+            print "Warning: did not write this data...\n%s" % row
     # end output_row_to_docx
 
     def parse(self):
@@ -195,10 +214,15 @@ class CsvParser():
 #end CsvParser
     
 if __name__ == '__main__':
-
+    parser = create_parser()
+    args = parser.parse_args()
 
     s = MySettings()
-    s.read_json()
+    s.read_json(args.settings) # Use argparse specified settings file
+    
+    # Add the argparse inputs
+    s.INPUT_FILE = args.input
+    s.OUTPUT_FILE = args.output
 
     out_docx = DocxConfig(s)
     csv_parser = CsvParser(s)

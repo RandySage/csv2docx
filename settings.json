@@ -2,5 +2,18 @@
     "skip_header": true,
     "l_delim": "{",
     "r_delim": "}",
+
+    "NUM_NON_BODY_COLS": "5",
+            
+    "ID_IND":           "0",
+    "HEADING_LEVEL_IND": "2",
+    "HEADING_NUM_IND":  "3",
+    "HEADING_TEXT_IND": "4",
+    "BODY_TEXT_IND":    "5",
+
+    "title":      "Payload Specification",
+    "subject":    "Auto export using docx from Python",
+    "creator":   "Randy Sage",
+    "keywords":  ["python", "Office Open XML", "Word"],
     "last_field_no_comma": null
 }

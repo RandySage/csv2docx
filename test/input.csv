@@ -3,7 +3,7 @@ ID,???,HeadingLevel,HeadingNumber,Heading,Body
 1,,1,1.,H1,
 2,,,,,Text after first heading
 7,,2,1.1,H2,
-6,,,,,Text after second heading reference to section {#7}, {H7} (1.1, H2) and to section {#9},{H9} (1.1.1.1, H4) 
+6,,,,,"Text after second heading reference to section {#7}, {H7} (1.1, H2) and to section {#9},{H9} (1.1.1.1, H4)"
 3,,3,1.1.1,H3,
 8,,,,,Text after third heading
 9,,4,1.1.1.1,H4,
