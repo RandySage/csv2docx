@@ -226,7 +226,7 @@ class CsvParser():
     
     def clean_backslash_r(self, row, debug=False):
         s = self.s
-        new_row = row[:]
+        new_row = [unicode(col,errors='ignore') for col in row]
         #try:
         if( hasattr(s,'indices_to_replace_backslash_r') and 
             len(s.indices_to_replace_backslash_r) and
@@ -256,13 +256,15 @@ class CsvParser():
             with open(s.INPUT_FILE,'U') as csvfile:
                 reader = csv.reader(csvfile, delimiter=',', quotechar='"')
                 for row in reader:
-                    row = self.clean_backslash_r(row)
-                    try:
-                        int_key = int(row[s.ID_IND])
-                        self.header_dict[int_key] = (row[s.HEADING_NUM_IND],
-                                                     row[s.HEADING_TEXT_IND])
-                    except:
-                        pass
+                    if len(row):
+                        try:
+                            row = self.clean_backslash_r(row)
+                            int_key = int(row[s.ID_IND])
+                            self.header_dict[int_key] = (row[s.HEADING_NUM_IND],
+                                                         row[s.HEADING_TEXT_IND])
+                        except:
+                            print "issue in entry with id %s" % row[self.s.ID_IND]
+                            pass
             with open(s.INPUT_FILE,'rb') as csvfile:
                 reader = csv.reader(csvfile, delimiter=',', quotechar='"')
                 need_to_skip_header = s.skip_header
