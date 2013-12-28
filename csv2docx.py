@@ -12,10 +12,8 @@ This file makes a .docx (Word 2007) file from scratch.
 See LICENSE for licensing information.
 
 Todo:
- - do something with tables
- - finish getting images to work
- - deal with line endings in cells
- - fix to use l_delim, r_delim
+ - Todo items will be placed throughout text preceded by 'TODO' with a colon, to cue eclipse
+     recommend `grep -rI TODO [^v]*` if not using eclipse (exclude virtualenv)
 
 """
 
@@ -27,6 +25,11 @@ import csv
 import sys
 import json
 import inspect
+import logging
+
+FORMAT = '%(asctime)-15s %(module)s %(funcName)s %(message)s'
+logging.basicConfig(format=FORMAT, filename='temp.log')
+log = logging.getLogger()
 
 DEFAULT_JSON = 'settings.json'
 DEFAULT_INPUT_FILE = 'test/input.csv'
@@ -79,9 +82,10 @@ class MySettings():
 
             # Confirm settings about as expected
 
-        except:
+        except Exception as ex:
             sys.exit("Unexpected issue in %s\nExiting..." %
                      inspect.stack()[0][3])
+            raise # Previous line should raise - here for pcregrep audit
     # validate_set_json_dict
 
     def read_json_file(self, json_file):
@@ -104,6 +108,20 @@ class DocxConfig():
         # This xpath location is where most interesting content lives
         self.body = self.document.xpath('/w:document/w:body', namespaces=nsprefixes)[0]
     # end __init__
+    
+    def valid_character(self, i):
+        if not isinstance(i, int) and isinstance(i,str):
+            if len(i) > 1:
+                raise LogicError('%s was passed a string with length > 1' %
+                                 inspect.stack()[0][3])
+            i = ord(i)  
+        return ( # conditions ordered by presumed frequency
+            0x20 <= i <= 0xD7FF 
+            or i in (0x9, 0xA, 0xD)
+            or 0xE000 <= i <= 0xFFFD
+            or 0x10000 <= i <= 0x10FFFF
+            )
+    # end valid_character
 
     def add_image(self, image_file, image_caption):
         self.relationships, picpara = picture(self.relationships, 
@@ -131,38 +149,74 @@ class DocxConfig():
                  word_relationships, out_file)
     # end save
 
+    def clean(self, text):
+        try:
+            clean_text = ''.join(
+                unicode(c,encoding='ascii',errors='ignore') for c in text
+                ) 
+            return clean_text
+        except Exception as ex:
+            print ('WARNING: Unexpected error encountered in %s'  %
+                   inspect.stack()[0][3])
+            raise # Don't catch all without raising
+        # end clean
+
     def write_heading(self, heading_text, heading_level):
-        self.body.append(heading(heading_text, 
+        clean_text = self.clean(heading_text)
+        self.body.append(heading(clean_text,
                                  heading_level))
 
     def write_paragraph(self, para, row_id):
         try:
-            self.body.append(paragraph(para))
-        except:
-            self.body.append(paragraph(
-                'Failed to write paragraph with id %s' % row_id))
+            if len(para):
+                # TODO: implement separate paragraphs where newlines were included
+                # see http://stackoverflow.com/a/14422406/527489
+                clean_para = self.clean(para)
+                self.body.append(paragraph(clean_para))
+        except Exception as ex:
+            err_msg = 'Failed to write paragraph with id %s' % row_id
+            self.body.append(paragraph(err_msg))
+            log.warning(err_msg)
+            log.info(ex)
+            raise # Don't catch all without raising
     # end write_paragraph
 # DocxConfig
 
+class ParsedToken:
+    is_image = False
+    value = ''
+# end ParsedToken
+
 class CsvParser():
+    
     def __init__(self, settings):
         self.header_dict = {}
         self.s = settings
         self.out_docx = None # Error if not set; TODO improve error handling
     # end __init__
 
-    def insert_image(self, filename_or_other):
+    def insert_image(self, filename_or_other, id=-1):
         # Add an image - INITIAL HACK (but found/fixed a bug)
         try:
             self.out_docx.add_image( filename_or_other,
                                      'Captions not implemented - TBD')
-        except:
-            self.out_docx.write_paragraph(filename_or_other)
+        except IOError as ex:
+            log.exception(str(ex))
+        except Exception as ex:
+            print "Assumed to be a block of text in delimeters" ,
+            self.out_docx.write_paragraph(filename_or_other, id)
+            print "."
+            # TODO: do something with tables
+            # TODO: finish getting images to work (done?)
+            raise # Don't catch all without raising
+ 
     # end insert_image
 
     def parse_token(self, token):
+        # TODO: consider refactoring tuple returns to avoid malformed return
         s = self.s
         token_contents = token[len(s.l_delim):-len(s.r_delim)]
+        parsed = ParsedToken()
 
         if re.match('^[#H]\d+$',token_contents):
             try:
@@ -172,39 +226,59 @@ class CsvParser():
                     dict_index = 1
                 else:
                     print "OOPS: %s" % token_contents[0] 
-                print token_contents[1:] + " " ,
                 target_key = int(token_contents[1:])
                 target_dict = self.header_dict[target_key]
-                return target_dict[dict_index]
-            except:
-                print "except"
-                return (False, token + "_ERROR")
+                parsed.value = target_dict[dict_index]
+                parsed.is_image = False
+                return parsed
+            except Exception as ex:
+                log.error("%s caught exception processing token, %s" %
+                          (inspect.stack()[0][3], token))
+                raise # Don't catch all without raising
         else:
-            print 'IMAGE OR NOTE: %s' % token_contents
-            return (True, token_contents)
+            log.info('IMAGE OR NOTE: %s' % token_contents)
+            parsed.value = token_contents
+            parsed.is_image = True
+            return parsed
     # end parse_token
 
     def output_body_to_docx(self, body, row_id):
-        s = self.s
-        esc_seq = '%s[^%s]*%s' % ( s.l_delim, s.r_delim, s.r_delim )
-        non_matches = re.split(esc_seq,body)
-        matches = re.findall(esc_seq,body)
-        if len(non_matches) != len(matches)+1:
-            raise LogicError('%s erred in regex logic' %
-                             (inspect.stack()[0][3],json_filename))
-
-        this_str = ''
-        for i in range(0,len(matches)):
-            this_str += non_matches[i]
-            is_image, ref_str = self.parse_token(matches[i])
-            if is_image:
-                self.out_docx.write_paragraph(this_str, row_id)
-                this_str = ''
-                self.insert_image(ref_str)
-            else:
-                this_str += ref_str
-        self.out_docx.write_paragraph(non_matches[-1],row_id)
+        try:
+            s = self.s
+            esc_seq = '%s[^%s]*%s' % ( s.l_delim, s.r_delim, s.r_delim )
+            non_matches = re.split(esc_seq,body)
+            matches = re.findall(esc_seq,body)
+            if len(non_matches) != len(matches)+1:
+                raise LogicError('%s erred in regex logic' %
+                                 (inspect.stack()[0][3],json_filename))
+    
+            this_str = ''
+            for i in range(0,len(matches)):
+                this_str += non_matches[i]
+                parsed = self.parse_token(matches[i]) 
+                if parsed.is_image:
+                    self.out_docx.write_paragraph(this_str, row_id)
+                    this_str = ''
+                    self.insert_image(parsed.value)
+                else:
+                    this_str += parsed.value
+            self.out_docx.write_paragraph(non_matches[-1],row_id)
+        except Exception as ex:
+            print "Warning: did not write this data...\n%s" % str(row_id)+": "+body
+            raise # Don't catch all without raising
     # end output_body_to_docx
+
+    def output_header_to_docx(self, row):
+        try:
+            h_text = ' '.join((row[s.HEADING_NUM_IND],
+                               row[s.HEADING_TEXT_IND]))
+            self.out_docx.write_heading(h_text, 
+                                        int(row[s.HEADING_LEVEL_IND]))
+        except (SystemError, SystemExit):
+            raise
+        except Exception as ex:
+            print "Warning: did not write this heading...\n%s" % row
+            raise # Don't catch all without raising
 
     def output_row_to_docx(self, row):
         s = self.s
@@ -212,16 +286,10 @@ class CsvParser():
         if not len(row): # no content
             return
 
-        try:
-            if len(row[s.HEADING_LEVEL_IND]):
-                h_text = ' '.join((row[s.HEADING_NUM_IND],
-                                   row[s.HEADING_TEXT_IND]))
-                self.out_docx.write_heading(h_text, 
-                                            int(row[s.HEADING_LEVEL_IND]))
-            else:
-                self.output_body_to_docx(row[s.BODY_TEXT_IND],row[s.ID_IND])
-        except:
-            print "Warning: did not write this data...\n%s" % row
+        if len(row[s.HEADING_LEVEL_IND]):
+            self.output_header_to_docx(row)
+        else:
+            self.output_body_to_docx(row[s.BODY_TEXT_IND],row[s.ID_IND])
     # end output_row_to_docx
     
     def clean_backslash_r(self, row, debug=False):
@@ -256,15 +324,24 @@ class CsvParser():
             with open(s.INPUT_FILE,'U') as csvfile:
                 reader = csv.reader(csvfile, delimiter=',', quotechar='"')
                 for row in reader:
-                    if len(row):
+                    if len(''.join(row)):
                         try:
                             row = self.clean_backslash_r(row)
                             int_key = int(row[s.ID_IND])
+                            if self.header_dict.has_key(int_key):
+                                err_str = 'Error: Key %d was found more than once' % int_key 
+                                print err_str
+                                log.warning(err_str)
                             self.header_dict[int_key] = (row[s.HEADING_NUM_IND],
                                                          row[s.HEADING_TEXT_IND])
-                        except:
-                            print "issue in entry with id %s" % row[self.s.ID_IND]
-                            pass
+                        except ValueError as ex:
+                            err_msg = ("issue in entry with id %s" % 
+                                       row[self.s.ID_IND])
+                            print err_msg
+                            log.warning(err_msg)
+                            log.info(ex)
+                        except Exception as ex:
+                            raise # Don't catch all without raising
             with open(s.INPUT_FILE,'rb') as csvfile:
                 reader = csv.reader(csvfile, delimiter=',', quotechar='"')
                 need_to_skip_header = s.skip_header
