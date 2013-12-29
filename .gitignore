@@ -1,5 +1,6 @@
-# Exclude virtual environment
+# Exclude virtual environment and eclipse settings
 venv
+.settings
 
 # Standard python ignore follows
 

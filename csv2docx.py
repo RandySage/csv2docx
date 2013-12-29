@@ -31,7 +31,7 @@ FORMAT = '%(asctime)-15s %(module)s %(funcName)s %(message)s'
 logging.basicConfig(format=FORMAT, filename='temp.log')
 log = logging.getLogger()
 
-DEFAULT_JSON = 'settings.json'
+DEFAULT_JSON = 'test/test_settings.json'
 DEFAULT_INPUT_FILE = 'test/input.csv'
 DEFAULT_OUTPUT_FILE = 'test/output.docx'
 
