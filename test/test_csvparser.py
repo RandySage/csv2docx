@@ -1,4 +1,4 @@
-from csv2docx import CsvParser, MySettings, JsonError
+from csv2docx import CsvParser, MySettings, JsonError, CrossRefError
 import unittest
 from sys import stderr as err
 import os
@@ -6,6 +6,8 @@ import os
 THIS_FOLDER = os.path.abspath(os.path.dirname(__file__))
 
 JSON_FILE = os.path.join(THIS_FOLDER, 'test_settings.json')
+DEFAULT_INPUT_FILE = 'input.csv'
+DEFAULT_OUTPUT_FILE = 'output.csv'
 
 CSV_AS_STRING = '''ID,???,HeadingLevel,HeadingNumber,Heading,Body
 0,,,,,text in front of first heading...
@@ -23,12 +25,13 @@ CSV_AS_STRING = '''ID,???,HeadingLevel,HeadingNumber,Heading,Body
 21,,2,2.1,you may be encountering the relative path bug,
 '''
 
-class TestCleanBackslashR(unittest.TestCase):
-    
+class TestParser(unittest.TestCase):
+  
     def setUp(self):
-        print '__setup__'
         self.s = MySettings()
         self.s.read_json_file(JSON_FILE)
+        self.s.INPUT_FILE = DEFAULT_INPUT_FILE
+        self.s.OUTPUT_FILE = DEFAULT_OUTPUT_FILE
         self.parser = CsvParser(self.s)
         self.clean_row = ['6',
                '',
@@ -45,11 +48,9 @@ class TestCleanBackslashR(unittest.TestCase):
                '',
                'Text after\r second heading reference\r to section {#7}, {H7} (1.1, H2) and\r to section {#9},{H9} (1.1.1.1, H4)',
            ]
-
-        #err.write('\nTestParse_setup...')
+    # end setUp
 
     def tearDown(self):
-        #err.write('.TestParse_teardown...')
         pass
 
 
@@ -109,3 +110,39 @@ class TestCleanBackslashR(unittest.TestCase):
         # err.write("\n"+"\n".join(cleaned_row))
         err.write("\nTODO: add better testing of \\r cleanup\n")
         self.assertNotEqual(self.slashed_row,cleaned_row)
+
+    def test_parse_token_throws_if_key_not_found(self): 
+        
+        large_num = 99999
+        with self.assertRaises( CrossRefError ):
+            test_token = (self.s.l_delim + self.s.heading_text_symbol + str(large_num) + self.s.r_delim)
+            result = self.parser.parse_token(test_token)
+            
+        
+
+    def test_parse_token(self):
+        err.write('Entered the test in question....')
+        header_dict = self.parser.build_header_dict()
+        self.assertTrue(len(header_dict) > 1, 
+                        'Constructed header_dict does not have >1 entries')
+        
+        self.parser.header_dict = header_dict
+        for key in header_dict.keys():
+            for code in (self.s.heading_number_symbol,self.s.heading_text_symbol):
+                test_token = (self.s.l_delim +
+                            code +
+                            str(key) +
+                            self.s.r_delim)
+                try:
+                    result = self.parser.parse_token(test_token)
+                    if len(result.value):
+                        err.write ( '%s: %s\n' % (test_token, result.value) )
+                except CrossRefError as ex:
+                    err.write ( '%s: %s\n' % (test_token, ex.message) )
+                    break
+        self.assertTrue(False, "This test needs to be 'automated' to not require human review")
+        
+
+    def test_pyunit_tests(self):
+        self.assertTrue(False, 'Want to see a failure')
+# end TestParser

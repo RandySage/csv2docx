@@ -39,6 +39,8 @@ class LogicError(Exception):
     pass
 class JsonError(Exception):
     pass
+class CrossRefError(Exception):
+    pass
 
 def create_parser():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -54,6 +56,21 @@ def create_parser():
                         default = DEFAULT_JSON)
 
     return parser
+
+class utils():
+    
+    @staticmethod
+    def log(msg, logfunction=log.warning, ex=None):
+        print msg
+        logfunction(msg)
+        if ex:
+            log.info(ex)
+    @staticmethod        
+    def int_repr(s):
+        try:
+            return int(s)
+        except ValueError:
+            return None
 
 
 class MySettings():
@@ -204,7 +221,7 @@ class CsvParser():
             log.exception(str(ex))
         except Exception as ex:
             print "Assumed to be a block of text in delimeters" ,
-            self.out_docx.write_paragraph(filename_or_other, id)
+            self.out_docx.write_paragraph('{'+filename_or_other+'}', id)
             print "."
             # TODO: do something with tables
             # TODO: finish getting images to work (done?)
@@ -213,20 +230,23 @@ class CsvParser():
     # end insert_image
 
     def parse_token(self, token):
-        # TODO: consider refactoring tuple returns to avoid malformed return
         s = self.s
         token_contents = token[len(s.l_delim):-len(s.r_delim)]
         parsed = ParsedToken()
 
         if re.match('^[#H]\d+$',token_contents):
             try:
-                if token_contents[0] == '#':
-                    dict_index = 0
-                elif token_contents[0] == 'H':
-                    dict_index = 1
+                if (token_contents[0:len(s.heading_text_symbol)] == 
+                    s.heading_text_symbol):
+                    dict_index = s.HEADING_TEXT_IND
+                elif (token_contents[0:len(s.heading_number_symbol)] == 
+                    s.heading_number_symbol):
+                    dict_index = s.HEADING_NUM_IND
                 else:
                     print "OOPS: %s" % token_contents[0] 
                 target_key = int(token_contents[1:])
+                if not self.header_dict.has_key(target_key):
+                    raise CrossRefError('Did not find cross reference key, %d' % target_key)
                 target_dict = self.header_dict[target_key]
                 parsed.value = target_dict[dict_index]
                 parsed.is_image = False
@@ -250,7 +270,7 @@ class CsvParser():
             matches = re.findall(esc_seq,body)
             if len(non_matches) != len(matches)+1:
                 raise LogicError('%s erred in regex logic' %
-                                 (inspect.stack()[0][3],json_filename))
+                                 inspect.stack()[0][3])
     
             this_str = ''
             for i in range(0,len(matches)):
@@ -316,32 +336,39 @@ class CsvParser():
         return new_row
     # end clean_backslash_r
 
+    def build_header_dict(self):
+        s = self.s
+        header_dict = {}
+        with open(s.INPUT_FILE,'U') as csvfile:
+            reader = csv.reader(csvfile, delimiter=',', quotechar='"')
+            for row in reader:
+                if not len(''.join(row)) or (s.ID_IND >= len(row)):
+                    utils.log("row has fewer than %d entries\nRow: %s" % 
+                               (s.ID_IND+1,row))
+                else:
+                    int_key = utils.int_repr(row[s.ID_IND])
+                    if int_key == None or header_dict.has_key(int_key):
+                        utils.log('WARNING: Non-int or dupl key - ignoring: %s' % 
+                                  row[s.ID_IND])
+                    else:
+                        clean_row = self.clean_backslash_r(row)
+                        header_dict[int_key] = {}
+                        header_dict[int_key][s.HEADING_NUM_IND] = (
+                            clean_row[s.HEADING_NUM_IND] )
+                        header_dict[int_key][s.HEADING_TEXT_IND] = (
+                            clean_row[s.HEADING_TEXT_IND])
+                #end if/else
+            #end for    
+        #end with    
+        return header_dict
+    #end build_header_dict
+    
     def parse(self):
         s = self.s
         if self.out_docx == None:
             sys.exit('Output docx not configured\nExiting...' )
         try:
-            with open(s.INPUT_FILE,'U') as csvfile:
-                reader = csv.reader(csvfile, delimiter=',', quotechar='"')
-                for row in reader:
-                    if len(''.join(row)):
-                        try:
-                            row = self.clean_backslash_r(row)
-                            int_key = int(row[s.ID_IND])
-                            if self.header_dict.has_key(int_key):
-                                err_str = 'Error: Key %d was found more than once' % int_key 
-                                print err_str
-                                log.warning(err_str)
-                            self.header_dict[int_key] = (row[s.HEADING_NUM_IND],
-                                                         row[s.HEADING_TEXT_IND])
-                        except ValueError as ex:
-                            err_msg = ("issue in entry with id %s" % 
-                                       row[self.s.ID_IND])
-                            print err_msg
-                            log.warning(err_msg)
-                            log.info(ex)
-                        except Exception as ex:
-                            raise # Don't catch all without raising
+            self.header_dict = self.build_header_dict()
             with open(s.INPUT_FILE,'rb') as csvfile:
                 reader = csv.reader(csvfile, delimiter=',', quotechar='"')
                 need_to_skip_header = s.skip_header
