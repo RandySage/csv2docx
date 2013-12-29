@@ -26,6 +26,7 @@ import sys
 import json
 import inspect
 import logging
+from curses import ascii
 
 FORMAT = '%(asctime)-15s %(module)s %(funcName)s %(message)s'
 logging.basicConfig(format=FORMAT, filename='temp.log')
@@ -168,15 +169,15 @@ class DocxConfig():
 
     def clean(self, text):
         try:
-            clean_text = ''.join(
-                unicode(c,encoding='ascii',errors='ignore') for c in text
-                ) 
+            clean_text = str(''.join(
+                ascii.isprint(c) and c or '?' for c in text
+                )) 
             return clean_text
         except Exception as ex:
             print ('WARNING: Unexpected error encountered in %s'  %
                    inspect.stack()[0][3])
             raise # Don't catch all without raising
-        # end clean
+    # end clean
 
     def write_heading(self, heading_text, heading_level):
         clean_text = self.clean(heading_text)
@@ -295,7 +296,7 @@ class CsvParser():
     def output_body_to_docx(self, body, row_id):
         replaced_list = self.replace_cross_refs(body, row_id)
         for entry in replaced_list:
-            if isinstance(entry, Parsed):
+            if isinstance(entry, CsvParser.ParsedToken):
                 self.insert_image(entry.value)
             else:
                 self.out_docx.write_paragraph(entry, row_id)
