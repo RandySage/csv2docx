@@ -199,11 +199,6 @@ class DocxConfig():
     # end write_paragraph
 # DocxConfig
 
-class ParsedToken:
-    is_image = False
-    value = ''
-# end ParsedToken
-
 class CsvParser():
     
     def __init__(self, settings):
@@ -211,6 +206,11 @@ class CsvParser():
         self.s = settings
         self.out_docx = None # Error if not set; TODO improve error handling
     # end __init__
+
+    class ParsedToken:
+        is_image = False
+        value = ''
+    # end ParsedToken
 
     def insert_image(self, filename_or_other, id=-1):
         # Add an image - INITIAL HACK (but found/fixed a bug)
@@ -232,7 +232,7 @@ class CsvParser():
     def parse_token(self, token):
         s = self.s
         token_contents = token[len(s.l_delim):-len(s.r_delim)]
-        parsed = ParsedToken()
+        parsed = self.ParsedToken()
 
         if re.match('^[#H]\d+$',token_contents):
             try:
@@ -262,7 +262,8 @@ class CsvParser():
             return parsed
     # end parse_token
 
-    def output_body_to_docx(self, body, row_id):
+    def replace_cross_refs(self, body, row_id):
+        result = []
         try:
             s = self.s
             esc_seq = '%s[^%s]*%s' % ( s.l_delim, s.r_delim, s.r_delim )
@@ -277,15 +278,29 @@ class CsvParser():
                 this_str += non_matches[i]
                 parsed = self.parse_token(matches[i]) 
                 if parsed.is_image:
-                    self.out_docx.write_paragraph(this_str, row_id)
+                    result.append(this_str)
                     this_str = ''
-                    self.insert_image(parsed.value)
+                    result.append(parsed)
                 else:
                     this_str += parsed.value
-            self.out_docx.write_paragraph(non_matches[-1],row_id)
+            result.append(this_str)
+            result.append(non_matches[-1])
         except Exception as ex:
             print "Warning: did not write this data...\n%s" % str(row_id)+": "+body
             raise # Don't catch all without raising
+        #end try
+        return result
+    # end replace_cross_refs
+
+    def output_body_to_docx(self, body, row_id):
+        replaced_list = self.replace_cross_refs(body, row_id)
+        for entry in replaced_list:
+            if isinstance(entry, Parsed):
+                self.insert_image(entry.value)
+            else:
+                self.out_docx.write_paragraph(entry, row_id)
+            # endif
+        # endfor
     # end output_body_to_docx
 
     def output_header_to_docx(self, row):

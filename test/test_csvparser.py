@@ -1,7 +1,9 @@
-from csv2docx import CsvParser, MySettings, JsonError, CrossRefError
+from csv2docx import CsvParser, MySettings, JsonError, CrossRefError, utils
 import unittest
 from sys import stderr as err
 import os
+import csv
+import inspect
 
 THIS_FOLDER = os.path.abspath(os.path.dirname(__file__))
 
@@ -25,6 +27,26 @@ CSV_AS_STRING = '''ID,???,HeadingLevel,HeadingNumber,Heading,Body
 21,,2,2.1,you may be encountering the relative path bug,
 '''
 
+# TODO: make delimeter and quotechar json settings
+def build_ref_dict(filename):
+    ref_dict = {}
+    with open(filename,'U') as csvfile:
+        delim = ','
+        reader = csv.reader(csvfile, delimiter=delim, quotechar='"')
+        for row in reader:
+            if len(row):
+                id = utils.int_repr(row[0])
+                if id == None:
+                    continue
+                ref_dict[id] = row
+            # end if
+        # end for
+    # end with
+    return ref_dict
+# end build_ref_dict
+
+
+
 class TestParser(unittest.TestCase):
   
     def setUp(self):
@@ -32,6 +54,8 @@ class TestParser(unittest.TestCase):
         self.s.read_json_file(JSON_FILE)
         self.s.INPUT_FILE = DEFAULT_INPUT_FILE
         self.s.OUTPUT_FILE = DEFAULT_OUTPUT_FILE
+        
+        self.ref_dict = build_ref_dict(self.s.INPUT_FILE)
         self.parser = CsvParser(self.s)
         self.clean_row = ['6',
                '',
@@ -121,11 +145,9 @@ class TestParser(unittest.TestCase):
         
 
     def test_parse_token(self):
-        err.write('Entered the test in question....')
         header_dict = self.parser.build_header_dict()
         self.assertTrue(len(header_dict) > 1, 
                         'Constructed header_dict does not have >1 entries')
-        
         self.parser.header_dict = header_dict
         for key in header_dict.keys():
             for code in (self.s.heading_number_symbol,self.s.heading_text_symbol):
@@ -133,16 +155,57 @@ class TestParser(unittest.TestCase):
                             code +
                             str(key) +
                             self.s.r_delim)
-                try:
-                    result = self.parser.parse_token(test_token)
-                    if len(result.value):
-                        err.write ( '%s: %s\n' % (test_token, result.value) )
-                except CrossRefError as ex:
-                    err.write ( '%s: %s\n' % (test_token, ex.message) )
-                    break
-        self.assertTrue(False, "This test needs to be 'automated' to not require human review")
+                # try:
+                result = self.parser.parse_token(test_token)
+                # if len(result.value):
+                #    err.write ( '%s: %s\n' % (test_token, result.value) )
+                if len(self.ref_dict[key]) > code:
+                    self.assertEqual(result.value, self.ref_dict[key][code])
+                #except CrossRefError as ex:
+                #    err.write ( '%s: %s\n' % (test_token, ex.message) )
+                #    break
+            # end for
+        # end for
+    # end test_parse_token 
+    
+    def test_parse_string_with_token(self):
+        header_dict = self.parser.build_header_dict()
+        self.assertTrue(len(header_dict) > 1, 
+                        'Constructed header_dict does not have >1 entries')
+        self.parser.header_dict = header_dict
+        text = ('Text after second heading reference to section {#7}, {H7} '+
+                '(1.1, H2) and to section {#9},{H9} (1.1.1.1, H4)')
+        expected_subst_text = (text.replace('{#7}', '1.1').replace('{H7}','H2')
+                               ).replace('{#9}','1.1.1.1').replace('{H9}','H4')
+        subst_text = ''.join(self.parser.replace_cross_refs(text, None))
+        self.assertEqual(expected_subst_text, subst_text, 
+                         ("Failed to get expected subst_text in %s" % 
+                          inspect.stack()[0][3]))
+    #end test_parse_string_with_token
+    
+    def test_parse_string_with_token_incl_image(self):
+        header_dict = self.parser.build_header_dict()
+        self.assertTrue(len(header_dict) > 1, 
+                        'Constructed header_dict does not have >1 entries')
+        self.parser.header_dict = header_dict
+        text = ('Text with {bad_text} and reference to section {#7}, {H7} '+
+                '(1.1, H2) and to section {#9},{H9} (1.1.1.1, H4)')
+        expected_subst_text = (text.replace('{#7}', '1.1').replace('{H7}','H2')
+                               ).replace('{#9}','1.1.1.1').replace('{H9}','H4')
+        subst_list = self.parser.replace_cross_refs(text, None)
         
+        subst_list_image_ignored = []
+        for entry in subst_list:
+            if isinstance(entry, CsvParser.ParsedToken):
+                subst_list_image_ignored.append(self.s.l_delim +
+                                                entry.value + 
+                                                self.s.r_delim)
+            else:
+                subst_list_image_ignored.append(entry)
 
-    def test_pyunit_tests(self):
-        self.assertTrue(False, 'Want to see a failure')
+        subst_text = ''.join(subst_list_image_ignored)
+        self.assertEqual(expected_subst_text, subst_text, 
+                         ("Failed to get expected subst_text in %s" % 
+                          inspect.stack()[0][3]))
+    #end test_parse_string_with_token
 # end TestParser
