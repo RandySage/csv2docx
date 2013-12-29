@@ -28,8 +28,10 @@ import inspect
 import logging
 from curses import ascii
 
+THIS_FOLDER = os.path.abspath(os.path.dirname(__file__))
 FORMAT = '%(asctime)-15s %(module)s %(funcName)s %(message)s'
-logging.basicConfig(format=FORMAT, filename='temp.log')
+logging.basicConfig(format=FORMAT, 
+                    filename=os.path.join(THIS_FOLDER,'temp.log'))
 log = logging.getLogger()
 
 DEFAULT_JSON = 'test/test_settings.json'
@@ -355,7 +357,7 @@ class CsvParser():
     def build_header_dict(self):
         s = self.s
         header_dict = {}
-        with open(s.INPUT_FILE,'U') as csvfile:
+        with open(s.INPUT_FILE,'rb') as csvfile:
             reader = csv.reader(csvfile, delimiter=',', quotechar='"')
             for row in reader:
                 if not len(''.join(row)) or (s.ID_IND >= len(row)):
