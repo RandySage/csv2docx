@@ -229,6 +229,8 @@ class CsvParser():
     class ParsedToken:
         is_image=False
         value=''
+        def __repr__(self):
+            return "is_image=%s, value=%s"%(self.is_image, self.value)
     # end ParsedToken
 
     def insert_image(self, filename_or_other, id=-1):
@@ -335,7 +337,20 @@ class CsvParser():
             print "Warning: did not write this heading...\n%s"%row
             raise # Don't catch all without raising
 
-    def output_row_to_docx(self, row):
+    def write_debug_csv_data(self, row):
+        s=self.s
+        row_list=[row[ind] for ind in (s.ID_IND,
+                                         s.HEADING_LEVEL_IND,
+                                         s.HEADING_NUM_IND,
+                                         s.HEADING_TEXT_IND,
+                                         s.BODY_TEXT_IND)]
+        replaced_body=repr(self.replace_cross_refs(
+                                row[s.BODY_TEXT_IND], row[s.ID_IND]))
+        row_list.append(replaced_body)
+        self.debug['debug_writer'].writerow(row_list)
+    # end write_debug_csv_data
+
+    def output_row_to_docx(self, row, debug=False):
         s=self.s
 
         if not len(row): # no content
@@ -345,6 +360,8 @@ class CsvParser():
             self.output_header_to_docx(row)
         else:
             self.output_body_to_docx(row[s.BODY_TEXT_IND], row[s.ID_IND])
+        if debug:
+            self.write_debug_csv_data(row)
     # end output_row_to_docx
 
     def clean_backslash_r(self, row, debug=False):
@@ -398,7 +415,7 @@ class CsvParser():
         return header_dict
     # end build_header_dict
 
-    def parse(self):
+    def parse(self, debug=False):
         s=self.s
         if self.out_docx==None:
             sys.exit('Output docx not configured\nExiting...')
@@ -412,16 +429,29 @@ class CsvParser():
                         # Do nothing when skipping, except no longer skip
                         need_to_skip_header=False
                     else:
-                        self.output_row_to_docx(row)
+                        self.output_row_to_docx(row, debug=debug)
         except IOError:
             sys.exit('Failed to open input file: %s\nExiting...'%
                      s.INPUT_FILE)
         # end try
     # end parse()
 
-    def write_docx(self, out_docx):
+    def write_docx(self, out_docx, debug=False):
         self.out_docx=out_docx
-        self.parse()
+        if debug:
+            try:
+                self.debug={}
+                self.debug['csv']=open('debug.csv', 'wb')
+                self.debug['debug_writer']=csv.writer(self.debug['csv'])
+            except:
+                sys.exit('Failed to open debug output file\nExiting...')
+        self.parse(debug=debug)
+        if debug:
+            try:
+                self.debug['csv'].close()
+            except:
+                print('Failed to close debug output file\nExiting...')
+
     # end write_docx()
 # end CsvParser
 
@@ -436,10 +466,13 @@ if __name__=='__main__':
     s.INPUT_FILE=args.input
     s.OUTPUT_FILE=args.output
 
+    debug=hasattr(s, 'debug') and s.debug
+
+
     out_docx=DocxConfig(s)
     csv_parser=CsvParser(s)
 
-    csv_parser.write_docx(out_docx)
+    csv_parser.write_docx(out_docx, debug=debug)
 
     out_docx.save(s.OUTPUT_FILE)
     print 'Done :-)'

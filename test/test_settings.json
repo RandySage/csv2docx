@@ -21,5 +21,7 @@
     "creator":   "Randy Sage",
     "keywords":  ["python", "Office Open XML", "Word"],
 
+    "debug": true,
+
     "last_field_no_comma": null
 }
