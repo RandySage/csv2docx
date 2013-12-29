@@ -1,4 +1,4 @@
-from csv2docx import CsvParser, MySettings, JsonError, CrossRefError, utils
+from csv2docx import CsvParser, MySettings, JsonError, CrossRefError, utils, DocxConfig
 import unittest
 from sys import stderr as err
 import os
@@ -7,25 +7,10 @@ import inspect
 
 THIS_FOLDER = os.path.abspath(os.path.dirname(__file__))
 
-JSON_FILE = os.path.join(THIS_FOLDER, 'test_settings.json')
-DEFAULT_INPUT_FILE = 'input.csv'
-DEFAULT_OUTPUT_FILE = 'output.csv'
+JSON_FILE = list( utils.locator('test_settings.json') )[0] # Only takes first
+DEFAULT_INPUT_FILE = list( utils.locator('input.csv') )[0] 
+DEFAULT_OUTPUT_FILE = list( utils.locator('output.csv') )[0]
 
-CSV_AS_STRING = '''ID,???,HeadingLevel,HeadingNumber,Heading,Body
-0,,,,,text in front of first heading...
-1,,1,1.,H1,
-2,,,,,Text after first heading
-7,,2,1.1,H2,
-6,,,,,"Text after second heading reference to section {#7}, {H7} (1.1, H2) and to section {#9},{H9} (1.1.1.1, H4)"
-3,,3,1.1.1,H3,
-8,,,,,Text after third heading
-9,,4,1.1.1.1,H4,
-14,,,,,{test/images/480px-Smiley.svg.png}
-24,,,,,Text after fourth heading
-34,,,,,"Here is an image, {test/images/240px-Smiley.svg.png}, which I am attempting to put inline with a paragraph"
-23,,1,2.,If you don't see the images,
-21,,2,2.1,you may be encountering the relative path bug,
-'''
 
 # TODO: make delimeter and quotechar json settings
 def build_ref_dict(filename):
@@ -208,4 +193,12 @@ class TestParser(unittest.TestCase):
                          ("Failed to get expected subst_text in %s" % 
                           inspect.stack()[0][3]))
     #end test_parse_string_with_token
+
+#     def test_clean_of_special_characters(self):
+#         test_string_slash_n = 
+#         test_string_slash_r = test_string_slash_n.replace('\n', '\r')
+#         
+#         # Confirm cleaning does nothing
+#         self.assertEqual(test_string_slash_r, 
+#                          DocxConfig.clean(test_string_slash_r) )
 # end TestParser

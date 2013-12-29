@@ -12,4 +12,7 @@ ID,???,HeadingLevel,HeadingNumber,Heading,Body
 34,,,,,"Here is an image, {test/images/240px-Smiley.svg.png}, which I am attempting to put inline with a paragraph"
 23,,1,2.,If you don't see the images,
 21,,2,2.1,you may be encountering the relative path bug,
-
+13,,,,,"This is a challenging paragraph because it has obnoxious unicode:
+➢ arrow bullet
+• round bullet
+− regular dash"
