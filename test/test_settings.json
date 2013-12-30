@@ -5,7 +5,6 @@
     "heading_text_symbol": "H",
     "heading_number_symbol": "#",
 
-    "indices_to_replace_backslash_r": [4, 5],
     "replace_backslash_r_with": "\n",
 
     "NUM_NON_BODY_COLS": 5,
