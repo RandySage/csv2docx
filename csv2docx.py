@@ -200,7 +200,9 @@ class DocxConfig():
     def clean(text):
         try:
             clean_text = str(''.join(
-                ascii.isprint(c) and c or '?' for c in text
+                (ascii.isprint(c) and c) or
+                ((c == '\n' or c == '\r') and '\n') or
+                '?' for c in text
                 ))
                 # curses.unctrl(c) for c in text
             return clean_text
@@ -385,26 +387,6 @@ class CsvParser():
         for i in s.all_inds:
             new_row[i] = '\n'.join((DocxConfig.clean(line) for line in row[i].split('\n')))
             # TODO: clean up previous line
-
-        if(hasattr(s, 'indices_to_replace_backslash_r') and
-            len(s.indices_to_replace_backslash_r) and
-            len(row) # rule out empty rows
-        ):
-            if not hasattr(s, 'replace_backslash_r_with'):
-                raise JsonError('json has indices_to_replace_backslash_r ' +
-                                'true-like, but no replace_backslash_r_with')
-            # end if
-            for index in s.indices_to_replace_backslash_r:
-                if not isinstance(index, int) or abs(index) > len(new_row):
-                    raise JsonError(('json has indices_to_replace_backslash_r ' +
-                                     'with value %s not in row %s') %
-                                    (index, row[s.id_ind])
-                    )
-                else:
-                    new_row[index] = new_row[index].replace('\r',
-                                                            s.replace_backslash_r_with)
-            # end for
-
         return new_row
     # clean_only
 

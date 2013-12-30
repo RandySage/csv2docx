@@ -72,31 +72,6 @@ class TestParser(unittest.TestCase):
 
     # err.write((self.slashed_row[:]).__str__())
 
-    def test_raises_if_index_but_no_paired_field(self):
-        self.parser.s.indices_to_replace_backslash_r = [4, 5]
-        attr_to_delete = 'replace_backslash_r_with'
-        delattr(self.parser.s, attr_to_delete)
-
-        # Confirm deleted before testing
-        self.assertFalse(hasattr(self.parser.s, attr_to_delete))
-        with self.assertRaises(JsonError):
-            self.parser.clean_n_parse_tokens(self.slashed_row[:])
-
-    def test_raises_if_non_integer_index(self):
-        self.parser.s.indices_to_replace_backslash_r = [4, 'a']
-        with self.assertRaises(JsonError):
-            self.parser.clean_n_parse_tokens(self.slashed_row[:])
-
-    def test_raises_if_index_greater_than_length(self):
-        self.parser.s.indices_to_replace_backslash_r = [4, 27]
-        with self.assertRaises(JsonError):
-            self.parser.clean_n_parse_tokens(self.slashed_row[:])
-
-    def test_raises_if_index_less_than_negative_length(self):
-        self.parser.s.indices_to_replace_backslash_r = [-4, -27]
-        with self.assertRaises(JsonError):
-            self.parser.clean_n_parse_tokens(self.slashed_row[:])
-
     def test_dont_change_clean_row(self):
         cleaned_row = self.parser.clean_only(self.clean_row[:])
         self.assertEqual(self.clean_row, cleaned_row)
