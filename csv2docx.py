@@ -418,19 +418,19 @@ class CsvParser():
         return new_row
     # end clean_n_parse_tokens
 
-    # TODO: confirm not outputting header row...
     def build_clean_dict(self):
         """Builds a dictionary representation of input csv"""
         s = self.s
         self.clean_dict = {}
         self.ordered_id_list = []
+        skipped_header = False
         with open(s.INPUT_FILE, 'rb') as csvfile:
             reader = csv.reader(csvfile, delimiter=',', quotechar='"')
             for row in reader:
                 if not len(''.join(row)) or (s.id_ind >= len(row)):
                     utils.log("row has fewer than %d entries\nRow: %s" %
                                (s.id_ind + 1, row))
-                else:
+                elif skipped_header:
                     int_key = utils.int_repr(row[s.id_ind])
                     if int_key == None or self.clean_dict.has_key(int_key):
                         utils.log('WARNING: Non-int or dupl key - ignoring extras: %s' %
@@ -438,6 +438,8 @@ class CsvParser():
                     else:
                         self.ordered_id_list.append(int_key)
                         self.clean_dict[int_key] = self.clean_only(row)
+                else:
+                    skipped_header = True
     # end build_clean_dict
 
     def write_docx(self, out_docx, debug=False):
