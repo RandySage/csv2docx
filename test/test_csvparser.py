@@ -9,7 +9,7 @@ THIS_FOLDER = os.path.abspath(os.path.dirname(__file__))
 
 JSON_FILE = list(utils.locator('test_settings.json'))[0] # Only takes first
 DEFAULT_INPUT_FILE = list(utils.locator('input.csv'))[0]
-DEFAULT_OUTPUT_FILE = list(utils.locator('output.csv'))[0]
+DEFAULT_OUTPUT_FILE = 'test/output.docx'
 
 
 # TODO: make delimeter and quotechar json settings
@@ -103,9 +103,9 @@ class TestParser(unittest.TestCase):
 
     def test_changes_backslash(self):
         '''At least confirm that \r is 'changed' somehow '''
-        header_dict = self.parser.get_header_dict()
-        self.assertTrue(len(header_dict) > 1,
-                        'Constructed header_dict does not have >1 entries')
+        clean_dict = self.parser.get_clean_dict()
+        self.assertTrue(len(clean_dict) > 1,
+                        'Constructed clean_dict does not have >1 entries')
         cleaned_row = self.parser.clean_n_parse_tokens(self.slashed_row, True)
         # err.write("\n"+"\n".join(cleaned_row))
         err.write("\nTODO: add better testing of \\r cleanup\n")
@@ -121,11 +121,11 @@ class TestParser(unittest.TestCase):
 
 
     def test_parse_token(self):
-        header_dict = self.parser.get_header_dict()
-        self.assertTrue(len(header_dict) > 1,
-                        'Constructed header_dict does not have >1 entries')
-        self.parser.header_dict = header_dict
-        for key in header_dict.keys():
+        clean_dict = self.parser.get_clean_dict()
+        self.assertTrue(len(clean_dict) > 1,
+                        'Constructed clean_dict does not have >1 entries')
+        self.parser.clean_dict = clean_dict
+        for key in clean_dict.keys():
             for code in (self.s.heading_number_symbol, self.s.heading_text_symbol):
                 test_token = (self.s.l_delim +
                             code +
@@ -145,10 +145,10 @@ class TestParser(unittest.TestCase):
     # end test_parse_token
 
     def test_parse_string_with_token(self):
-        header_dict = self.parser.get_header_dict()
-        self.assertTrue(len(header_dict) > 1,
-                        'Constructed header_dict does not have >1 entries')
-        self.parser.header_dict = header_dict
+        clean_dict = self.parser.get_clean_dict()
+        self.assertTrue(len(clean_dict) > 1,
+                        'Constructed clean_dict does not have >1 entries')
+        self.parser.clean_dict = clean_dict
         text = ('Text after second heading reference to section {#7}, {H7} ' +
                 '(1.1, H2) and to section {#9},{H9} (1.1.1.1, H4)')
         expected_subst_text = (text.replace('{#7}', '1.1').replace('{H7}', 'H2')
@@ -160,10 +160,10 @@ class TestParser(unittest.TestCase):
     # end test_parse_string_with_token
 
     def test_parse_string_with_token_incl_image(self):
-        header_dict = self.parser.get_header_dict()
-        self.assertTrue(len(header_dict) > 1,
-                        'Constructed header_dict does not have >1 entries')
-        self.parser.header_dict = header_dict
+        clean_dict = self.parser.get_clean_dict()
+        self.assertTrue(len(clean_dict) > 1,
+                        'Constructed clean_dict does not have >1 entries')
+        self.parser.clean_dict = clean_dict
         text = ('Text with {bad_text} and reference to section {#7}, {H7} ' +
                 '(1.1, H2) and to section {#9},{H9} (1.1.1.1, H4)')
         expected_subst_text = (text.replace('{#7}', '1.1').replace('{H7}', 'H2')

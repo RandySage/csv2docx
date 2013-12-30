@@ -211,8 +211,7 @@ class DocxConfig():
     # end clean
 
     def write_heading(self, heading_text, heading_level):
-        clean_text = DocxConfig.clean(heading_text)
-        self.body.append(heading(clean_text,
+        self.body.append(heading(heading_text,
                                  heading_level))
 
     def write_paragraph(self, para, row_id):
@@ -220,8 +219,8 @@ class DocxConfig():
             if len(para):
                 # TODO: implement separate paragraphs where newlines were included
                 # see http://stackoverflow.com/a/14422406/527489
-                clean_para = DocxConfig.clean(para)
-                self.body.append(paragraph(clean_para))
+                for para_text in para.split('\n'):
+                    self.body.append(paragraph(para_text))
         except Exception as ex:
             err_msg = 'Failed to write paragraph with id %s' % row_id
             self.body.append(paragraph(err_msg))
@@ -236,13 +235,13 @@ class CsvParser():
     def __init__(self, settings):
         self.s = settings
         self.out_docx = None # Error if not set; TODO improve error handling
-        self.build_header_dict()
+        self.build_clean_dict()
     # end __init__
 
-    def get_header_dict(self):
+    def get_clean_dict(self):
         """ Return dictionary of header references """
-        return self.header_dict
-    # get_header_dict
+        return self.clean_dict
+    # get_clean_dict
 
     class ParsedToken:
         is_image = False
@@ -284,10 +283,10 @@ class CsvParser():
                 else:
                     print "OOPS: %s" % token_contents[0]
                 target_key = int(token_contents[1:])
-                if not self.header_dict.has_key(target_key):
-                    print repr(self.header_dict)
+                if not self.clean_dict.has_key(target_key):
+                    print repr(self.clean_dict)
                     raise CrossRefError('Did not find cross reference key, %d' % target_key)
-                target_dict = self.header_dict[target_key]
+                target_dict = self.clean_dict[target_key]
                 parsed.value = target_dict[dict_index]
                 parsed.is_image = False
                 return parsed
@@ -356,7 +355,7 @@ class CsvParser():
             print "Warning: did not write this heading...\n%s" % row
             raise # Don't catch all without raising
 
-    def write_debug_csv_data(self, row):
+    def write_debug_csv_data(self, row, debug_writer):
         s = self.s
         row_list = [row[ind] for ind in (s.id_ind,
                                          s.heading_level_ind,
@@ -366,28 +365,26 @@ class CsvParser():
         replaced_body = repr(self.replace_tokens(
                                 row[s.body_text_ind], row[s.id_ind]))
         row_list.append(replaced_body)
-        self.debug['debug_writer'].writerow(row_list)
+        debug_writer.writerow(row_list)
     # end write_debug_csv_data
 
-    def output_row_to_docx(self, row, debug=False):
+    def output_row_to_docx(self, row_id, debug_writer=None):
         s = self.s
-
-        if not len(row): # no content
-            return
-
+        row = self.clean_dict[row_id]
         if len(row[s.heading_level_ind]):
             self.output_header_to_docx(row)
         else:
             self.output_body_to_docx(row[s.body_text_ind], row[s.id_ind])
-        if debug:
-            self.write_debug_csv_data(row)
+        if debug_writer:
+            self.write_debug_csv_data(row, debug_writer)
     # end output_row_to_docx
 
     def clean_only(self, row):
         s = self.s
         new_row = row[:]
         for i in s.all_inds:
-            new_row[i] = DocxConfig.clean(row[i])
+            new_row[i] = '\n'.join((DocxConfig.clean(line) for line in row[i].split('\n')))
+            # TODO: clean up previous line
 
         if(hasattr(s, 'indices_to_replace_backslash_r') and
             len(s.indices_to_replace_backslash_r) and
@@ -421,9 +418,12 @@ class CsvParser():
         return new_row
     # end clean_n_parse_tokens
 
-    def build_header_dict(self):
+    # TODO: confirm not outputting header row...
+    def build_clean_dict(self):
+        """Builds a dictionary representation of input csv"""
         s = self.s
-        header_dict = {}
+        self.clean_dict = {}
+        self.ordered_id_list = []
         with open(s.INPUT_FILE, 'rb') as csvfile:
             reader = csv.reader(csvfile, delimiter=',', quotechar='"')
             for row in reader:
@@ -432,61 +432,22 @@ class CsvParser():
                                (s.id_ind + 1, row))
                 else:
                     int_key = utils.int_repr(row[s.id_ind])
-                    if int_key == None or header_dict.has_key(int_key):
-                        utils.log('WARNING: Non-int or dupl key - ignoring: %s' %
+                    if int_key == None or self.clean_dict.has_key(int_key):
+                        utils.log('WARNING: Non-int or dupl key - ignoring extras: %s' %
                                   row[s.id_ind])
                     else:
-                        clean_row = self.clean_only(row)
-                        header_dict[int_key] = {}
-                        header_dict[int_key][s.heading_num_ind] = (
-                            clean_row[s.heading_num_ind])
-                        header_dict[int_key][s.heading_text_ind] = (
-                            clean_row[s.heading_text_ind])
-                # end if/else
-            # end for
-        # end with
-        self.header_dict = header_dict
-        return header_dict
-    # end build_header_dict
-
-    def parse(self, debug=False):
-        s = self.s
-        if self.out_docx == None:
-            sys.exit('Output docx not configured\nExiting...')
-        try:
-            self.header_dict = self.build_header_dict()
-            with open(s.INPUT_FILE, 'rb') as csvfile:
-                reader = csv.reader(csvfile, delimiter=',', quotechar='"')
-                need_to_skip_header = s.skip_header
-                for row in reader:
-                    if need_to_skip_header:
-                        # Do nothing when skipping, except no longer skip
-                        need_to_skip_header = False
-                    else:
-                        self.output_row_to_docx(row, debug=debug)
-        except IOError:
-            sys.exit('Failed to open input file: %s\nExiting...' %
-                     s.INPUT_FILE)
-        # end try
-    # end parse()
+                        self.ordered_id_list.append(int_key)
+                        self.clean_dict[int_key] = self.clean_only(row)
+    # end build_clean_dict
 
     def write_docx(self, out_docx, debug=False):
         self.out_docx = out_docx
-        if debug:
-            try:
-                self.debug = {}
-                self.debug['csv'] = open('debug.csv', 'wb')
-                self.debug['debug_writer'] = csv.writer(self.debug['csv'])
-            except:
-                sys.exit('Failed to open debug output file\nExiting...')
-        self.parse(debug=debug)
-        if debug:
-            try:
-                self.debug['csv'].close()
-            except:
-                print('Failed to close debug output file\nExiting...')
-
+        with open('debug.csv', 'wb') as debug_file:
+            debug_writer = csv.writer(debug_file)
+            for row_id in self.ordered_id_list:
+                self.output_row_to_docx(row_id, debug_writer)
     # end write_docx()
+
 # end CsvParser
 
 if __name__ == '__main__':
