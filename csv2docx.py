@@ -93,11 +93,11 @@ class utils():
 class MySettings():
     """ Container class for csv2docx settings """
 
-    ID_IND = None
-    HEADING_LEVEL_IND = None
-    HEADING_NUM_IND = None
-    HEADING_TEXT_IND = None
-    BODY_TEXT_IND = None
+    id_ind = None
+    heading_level_ind = None
+    heading_num_ind = None
+    heading_text_ind = None
+    body_text_ind = None
     all_inds = []
 
     def json_file_to_dict(self, json_filename):
@@ -122,11 +122,11 @@ class MySettings():
                     ("l_delim ('%s') and r_delim ('%s') need to be single characters\nExiting..." %
                      (settings['l_delim'], settings['r_delim'])))
 
-            self.all_inds.append(self.ID_IND)
-            self.all_inds.append(self.HEADING_LEVEL_IND)
-            self.all_inds.append(self.HEADING_NUM_IND)
-            self.all_inds.append(self.HEADING_TEXT_IND)
-            self.all_inds.append(self.BODY_TEXT_IND)
+            self.all_inds.append(self.id_ind)
+            self.all_inds.append(self.heading_level_ind)
+            self.all_inds.append(self.heading_num_ind)
+            self.all_inds.append(self.heading_text_ind)
+            self.all_inds.append(self.body_text_ind)
             # Confirm settings about as expected
 
         except Exception as ex:
@@ -277,10 +277,10 @@ class CsvParser():
             try:
                 if (token_contents[0:len(s.heading_text_symbol)] ==
                     s.heading_text_symbol):
-                    dict_index = s.HEADING_TEXT_IND
+                    dict_index = s.heading_text_ind
                 elif (token_contents[0:len(s.heading_number_symbol)] ==
                     s.heading_number_symbol):
-                    dict_index = s.HEADING_NUM_IND
+                    dict_index = s.heading_num_ind
                 else:
                     print "OOPS: %s" % token_contents[0]
                 target_key = int(token_contents[1:])
@@ -346,10 +346,10 @@ class CsvParser():
     def output_header_to_docx(self, row):
         s = self.s
         try:
-            h_text = ' '.join((row[s.HEADING_NUM_IND],
-                               row[s.HEADING_TEXT_IND]))
+            h_text = ' '.join((row[s.heading_num_ind],
+                               row[s.heading_text_ind]))
             self.out_docx.write_heading(h_text,
-                                        int(row[s.HEADING_LEVEL_IND]))
+                                        int(row[s.heading_level_ind]))
         except (SystemError, SystemExit):
             raise
         except Exception as ex:
@@ -358,13 +358,13 @@ class CsvParser():
 
     def write_debug_csv_data(self, row):
         s = self.s
-        row_list = [row[ind] for ind in (s.ID_IND,
-                                         s.HEADING_LEVEL_IND,
-                                         s.HEADING_NUM_IND,
-                                         s.HEADING_TEXT_IND,
-                                         s.BODY_TEXT_IND)]
+        row_list = [row[ind] for ind in (s.id_ind,
+                                         s.heading_level_ind,
+                                         s.heading_num_ind,
+                                         s.heading_text_ind,
+                                         s.body_text_ind)]
         replaced_body = repr(self.replace_tokens(
-                                row[s.BODY_TEXT_IND], row[s.ID_IND]))
+                                row[s.body_text_ind], row[s.id_ind]))
         row_list.append(replaced_body)
         self.debug['debug_writer'].writerow(row_list)
     # end write_debug_csv_data
@@ -375,10 +375,10 @@ class CsvParser():
         if not len(row): # no content
             return
 
-        if len(row[s.HEADING_LEVEL_IND]):
+        if len(row[s.heading_level_ind]):
             self.output_header_to_docx(row)
         else:
-            self.output_body_to_docx(row[s.BODY_TEXT_IND], row[s.ID_IND])
+            self.output_body_to_docx(row[s.body_text_ind], row[s.id_ind])
         if debug:
             self.write_debug_csv_data(row)
     # end output_row_to_docx
@@ -401,7 +401,7 @@ class CsvParser():
                 if not isinstance(index, int) or abs(index) > len(new_row):
                     raise JsonError(('json has indices_to_replace_backslash_r ' +
                                      'with value %s not in row %s') %
-                                    (index, row[s.ID_IND])
+                                    (index, row[s.id_ind])
                     )
                 else:
                     new_row[index] = new_row[index].replace('\r',
@@ -415,7 +415,7 @@ class CsvParser():
         s = self.s
         new_row = self.clean_only(row)
         for i in s.all_inds:
-            tmp = self.replace_tokens(new_row[i], new_row[s.ID_IND])
+            tmp = self.replace_tokens(new_row[i], new_row[s.id_ind])
             # TODO: this is not finished
             # new_row[i] = DocxConfig.clean(row[i])
         return new_row
@@ -427,21 +427,21 @@ class CsvParser():
         with open(s.INPUT_FILE, 'rb') as csvfile:
             reader = csv.reader(csvfile, delimiter=',', quotechar='"')
             for row in reader:
-                if not len(''.join(row)) or (s.ID_IND >= len(row)):
+                if not len(''.join(row)) or (s.id_ind >= len(row)):
                     utils.log("row has fewer than %d entries\nRow: %s" %
-                               (s.ID_IND + 1, row))
+                               (s.id_ind + 1, row))
                 else:
-                    int_key = utils.int_repr(row[s.ID_IND])
+                    int_key = utils.int_repr(row[s.id_ind])
                     if int_key == None or header_dict.has_key(int_key):
                         utils.log('WARNING: Non-int or dupl key - ignoring: %s' %
-                                  row[s.ID_IND])
+                                  row[s.id_ind])
                     else:
                         clean_row = self.clean_only(row)
                         header_dict[int_key] = {}
-                        header_dict[int_key][s.HEADING_NUM_IND] = (
-                            clean_row[s.HEADING_NUM_IND])
-                        header_dict[int_key][s.HEADING_TEXT_IND] = (
-                            clean_row[s.HEADING_TEXT_IND])
+                        header_dict[int_key][s.heading_num_ind] = (
+                            clean_row[s.heading_num_ind])
+                        header_dict[int_key][s.heading_text_ind] = (
+                            clean_row[s.heading_text_ind])
                 # end if/else
             # end for
         # end with

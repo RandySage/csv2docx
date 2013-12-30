@@ -9,11 +9,11 @@
 
     "NUM_NON_BODY_COLS": 5,
             
-    "ID_IND":           0,
-    "HEADING_LEVEL_IND": 2,
-    "HEADING_NUM_IND":  3,
-    "HEADING_TEXT_IND": 4,
-    "BODY_TEXT_IND":    5,
+    "id_ind":           0,
+    "heading_level_ind": 2,
+    "heading_num_ind":  3,
+    "heading_text_ind": 4,
+    "body_text_ind":    5,
 
     "title":      "Test case",
     "subject":    "csv-based export using docx from Python",
