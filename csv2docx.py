@@ -39,6 +39,15 @@ DEFAULT_JSON = 'test/test_settings.json'
 DEFAULT_INPUT_FILE = 'test/input.csv'
 DEFAULT_OUTPUT_FILE = 'test/output.docx'
 
+def valid_XML_char(c):
+    i = ord(c)
+    return (# conditions ordered by presumed frequency
+        0x20 <= i <= 0xD7FF
+        or i in (0x9, 0xA, 0xD)
+        or 0xE000 <= i <= 0xFFFD
+        or 0x10000 <= i <= 0x10FFFF
+        )
+
 class LogicError(Exception):
     pass
 class JsonError(Exception):
@@ -196,15 +205,23 @@ class DocxConfig():
                  word_relationships, out_file)
     # end save
 
+#     import re
+#     # match characters from [upside down question mark] to the end of the JSON-encodable range
+#     @staticmethod
+#     def isprintable(s):
+#         exclude = re.compile(ur'[\u00bf-\uffff]')
+#         return not bool(exclude.search(s))
+
     @staticmethod
     def clean(text):
         try:
-            clean_text = str(''.join(
-                (ascii.isprint(c) and c) or
+            clean_text = ''.join(
+                (valid_XML_char(c) and c) or
                 ((c == '\n' or c == '\r') and '\n') or
                 '?' for c in text
-                ))
+                )
                 # curses.unctrl(c) for c in text
+                # (DocxConfig.isprintable(c) and c) or
             return clean_text
         except Exception as ex:
             print ('WARNING: Unexpected error encountered in %s' %
@@ -385,7 +402,8 @@ class CsvParser():
         s = self.s
         new_row = row[:]
         for i in s.all_inds:
-            new_row[i] = '\n'.join((DocxConfig.clean(line) for line in row[i].split('\n')))
+            new_row[i] = DocxConfig.clean(row[i])
+            # new_row[i] = '\n'.join((DocxConfig.clean(line) for line in row[i].split('\n')))
             # TODO: clean up previous line
         return new_row
     # clean_only
@@ -394,7 +412,7 @@ class CsvParser():
         s = self.s
         new_row = self.clean_only(row)
         for i in s.all_inds:
-            tmp = self.replace_tokens(new_row[i], new_row[s.id_ind])
+            new_row[i] = self.replace_tokens(new_row[i], new_row[s.id_ind])
             # TODO: this is not finished
             # new_row[i] = DocxConfig.clean(row[i])
         return new_row
@@ -430,6 +448,7 @@ class CsvParser():
             debug_writer = csv.writer(debug_file)
             for row_id in self.ordered_id_list:
                 self.output_row_to_docx(row_id, debug_writer)
+        self.out_docx.write_paragraph(unichr(10146), None)
     # end write_docx()
 
 # end CsvParser
