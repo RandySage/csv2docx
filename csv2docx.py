@@ -426,7 +426,7 @@ class CsvParser():
 
     def write_docx(self, out_docx, debug=False):
         self.out_docx = out_docx
-        with open('debug.csv', 'wb') as debug_file:
+        with open('/tmp/debug.csv', 'wb') as debug_file:
             debug_writer = csv.writer(debug_file)
             for row_id in self.ordered_id_list:
                 self.output_row_to_docx(row_id, debug_writer)
